@@ -10,7 +10,6 @@
 #define PWMFAN_MQTT_TOPIC "wled/PWMFan"
 #endif
 
-// Define tacho and PWM pins
 #ifndef TACHO_PIN
 #define TACHO_PIN -1
 #endif
@@ -22,7 +21,7 @@
 // Tacho counter
 static volatile unsigned long counter_rpm = 0;
 
-// Interrupt counting every rotation of the fan
+// Interrupt for counting every rotation of the fan
 static void IRAM_ATTR rpm_fan() {
   counter_rpm++;
 }
@@ -57,19 +56,6 @@ class PWMFanUsermod : public Usermod {
     static const uint8_t _pwmMaxValue = 255;
     static const uint8_t _pwmMaxStepCount = 7;
     float _pwmTempStepSize = 0.5f;
-
-    // Static member declarations
-    static const char _name[];
-    static const char _enabled[];
-    static const char _tachoPin[];
-    static const char _pwmPin[];
-    static const char _temperature[];
-    static const char _tachoUpdateSec[];
-    static const char _minPWMValuePct[];
-    static const char _maxPWMValuePct[];
-    static const char _IRQperRotation[];
-    static const char _speed[];
-    static const char _lock[];
 
     void initTacho(void) {
       if (tachoPin < 0 || !pinManager.allocatePin(tachoPin, false, PinOwner::UM_Unspecified)) {
@@ -193,8 +179,44 @@ class PWMFanUsermod : public Usermod {
       if (!lockFan) setFanPWMbasedOnTemperature();
     }
 
-    // additional methods...
+    // Additional methods as before
+    void adjustTargetTemp(float newTarget) {
+      targetTemperature = newTarget;
+      setFanPWMbasedOnTemperature();  // Recalculate fan speed based on new target temperature
+    }
 
+    String getFanStatus() {
+      if (!enabled) return "Fan is disabled.";
+      return String("Fan running at ") + last_rpm + " RPM.";
+    }
+
+    void rampUpFanSpeed() {
+      for (int i = minPWMValuePct; i <= maxPWMValuePct; i += 5) {
+        updateFanSpeed((i * _pwmMaxValue) / 100);
+        delay(1000); // Ramp up slowly over time
+      }
+    }
+
+    void addToJsonInfo(JsonObject& root) {
+      JsonObject user = root["u"];
+      if (user.isNull()) user = root.createNestedObject("u");
+
+      user["lastRPM"] = last_rpm;
+      user["targetTemp"] = targetTemperature;
+      user["currentTemp"] = getActualTemperature();
+    }
+
+    void handleRemoteInput(String command) {
+      if (command == "increase_temp") {
+        adjustTargetTemp(targetTemperature + 1);
+      } else if (command == "decrease_temp") {
+        adjustTargetTemp(targetTemperature - 1);
+      }
+    }
+
+    uint16_t getId() {
+        return USERMOD_ID_PWM_FAN;
+    }
 };
 
 // Static member initialization
