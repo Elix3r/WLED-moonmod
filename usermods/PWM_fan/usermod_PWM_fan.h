@@ -35,6 +35,7 @@ class PWMFanUsermod : public Usermod {
     #endif
     bool lockFan = false;
     char pwmFanMqttTopic[64];
+    uint8_t pwmValuePct = 0; // Make sure this is declared
 
     #ifdef USERMOD_DALLASTEMPERATURE
     UsermodTemperature* tempUM;
@@ -50,6 +51,7 @@ class PWMFanUsermod : public Usermod {
     uint8_t maxPWMValuePct = 100;
     uint8_t numberOfInterrupsInOneSingleRotation = 2;
 
+    // Ensure all member functions and variables are correctly declared and defined
     void initTacho() {
       if (tachoPin < 0 || !pinManager.allocatePin(tachoPin, false, PinOwner::UM_Unspecified)) {
         tachoPin = -1;
@@ -131,7 +133,7 @@ class PWMFanUsermod : public Usermod {
 
       // Calculate PWM value based on temperature difference
       int pwmStepSize = ((maxPWMValuePct - minPWMValuePct) * 255) / (100 * numberOfInterrupsInOneSingleRotation);
-      int pwmStep = min(numberOfInterrupsInOneSingleRotation, (int)(diffTemp / (targetTemperature / numberOfInterrupsInOneSingleRotation)) + 1);
+      int pwmStep = std::min(static_cast<int>(numberOfInterrupsInOneSingleRotation), static_cast<int>((diffTemp / (targetTemperature / numberOfInterrupsInOneSingleRotation)) + 1));
       updateFanSpeed((minPWMValuePct * 255) / 100 + pwmStep * pwmStepSize);
     }
 
@@ -210,7 +212,7 @@ class PWMFanUsermod : public Usermod {
           updateFanSpeed((constrain(pwmValuePct, 0, 100) * 255) / 100);
           if (pwmValuePct) lockFan = true;
         }
-        if (enabled && !usermod[FPSTR(_lock)].isNull() && usermod[FPSTR(_lock)].is<bool>()) {
+        if (enabled and !usermod[FPSTR(_lock)].isNull() and usermod[FPSTR(_lock)].is<bool>()) {
           lockFan = usermod[FPSTR(_lock)].as<bool>();
         }
       }
@@ -233,4 +235,3 @@ const char PWMFanUsermod::_maxPWMValuePct[] PROGMEM = "max-PWM-percent";
 const char PWMFanUsermod::_IRQperRotation[] PROGMEM = "IRQs-per-rotation";
 const char PWMFanUsermod::_speed[] PROGMEM = "speed";
 const char PWMFanUsermod::_lock[] PROGMEM = "lock";
-
