@@ -48,6 +48,18 @@ class PWMFanUsermod : public Usermod {
     static const uint8_t _pwmMaxStepCount = 7;
     float _pwmTempStepSize = 0.5f;
 
+    static const char _name[];
+    static const char _enabled[];
+    static const char _tachoPin[];
+    static const char _pwmPin[];
+    static const char _temperature[];
+    static const char _tachoUpdateSec[];
+    static const char _minPWMValuePct[];
+    static const char _maxPWMValuePct[];
+    static const char _IRQperRotation[];
+    static const char _speed[];
+    static const char _lock[];
+
     void initTacho() {
       if (tachoPin < 0 || !pinManager.allocatePin(tachoPin, false, PinOwner::UM_Unspecified)) {
         tachoPin = -1;
@@ -166,14 +178,14 @@ class PWMFanUsermod : public Usermod {
     }
 };
 
-const char PWMFanUsermod::_name[]           PROGMEM = "PWM-fan";
-const char PWMFanUsermod::_enabled[]        PROGMEM = "enabled";
-const char PWMFanUsermod::_tachoPin[]       PROGMEM = "tacho-pin";
-const char PWMFanUsermod::_pwmPin[]         PROGMEM = "PWM-pin";
-const char PWMFanUsermod::_temperature[]    PROGMEM = "target-temp-C";
+const char PWMFanUsermod::_name[] PROGMEM = "PWM-fan";
+const char PWMFanUsermod::_enabled[] PROGMEM = "enabled";
+const char PWMFanUsermod::_tachoPin[] PROGMEM = "tacho-pin";
+const char PWMFanUsermod::_pwmPin[] PROGMEM = "PWM-pin";
+const char PWMFanUsermod::_temperature[] PROGMEM = "target-temp-C";
 const char PWMFanUsermod::_tachoUpdateSec[] PROGMEM = "tacho-update-s";
 const char PWMFanUsermod::_minPWMValuePct[] PROGMEM = "min-PWM-percent";
 const char PWMFanUsermod::_maxPWMValuePct[] PROGMEM = "max-PWM-percent";
 const char PWMFanUsermod::_IRQperRotation[] PROGMEM = "IRQs-per-rotation";
-const char PWMFanUsermod::_speed[]          PROGMEM = "speed";
-const char PWMFanUsermod::_lock[]           PROGMEM = "lock";
+const char PWMFanUsermod::_speed[] PROGMEM = "speed";
+const char PWMFanUsermod::_lock[] PROGMEM = "lock";
