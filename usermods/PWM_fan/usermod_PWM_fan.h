@@ -10,7 +10,7 @@
 #define PWMFAN_MQTT_TOPIC "wled/PWMFan"
 #endif
 
-// Define pins and constants
+// Define tacho and PWM pins
 #ifndef TACHO_PIN
 #define TACHO_PIN -1
 #endif
@@ -19,7 +19,7 @@
 #define PWM_PIN -1
 #endif
 
-// tacho counter
+// Tacho counter
 static volatile unsigned long counter_rpm = 0;
 
 // Interrupt counting every rotation of the fan
@@ -28,7 +28,7 @@ static void IRAM_ATTR rpm_fan() {
 }
 
 class PWMFanUsermod : public Usermod {
-private:
+  private:
     bool initDone = false;
     bool enabled = true;
     unsigned long msLastTachoMeasurement = 0;
@@ -53,6 +53,11 @@ private:
     uint8_t maxPWMValuePct = 100;
     uint8_t numberOfInterrupsInOneSingleRotation = 2;
 
+    // Constants for PWM control
+    static const uint8_t _pwmMaxValue = 255;
+    static const uint8_t _pwmMaxStepCount = 7;
+    float _pwmTempStepSize = 0.5f;
+
     // Static member declarations
     static const char _name[];
     static const char _enabled[];
@@ -66,7 +71,7 @@ private:
     static const char _speed[];
     static const char _lock[];
 
-    void initTacho() {
+    void initTacho(void) {
       if (tachoPin < 0 || !pinManager.allocatePin(tachoPin, false, PinOwner::UM_Unspecified)) {
         tachoPin = -1;
         return;
@@ -77,14 +82,14 @@ private:
       DEBUG_PRINTLN(F("Tacho successfully initialized."));
     }
 
-    void deinitTacho() {
+    void deinitTacho(void) {
       if (tachoPin < 0) return;
       detachInterrupt(digitalPinToInterrupt(tachoPin));
       pinManager.deallocatePin(tachoPin, PinOwner::UM_Unspecified);
       tachoPin = -1;
     }
 
-    void updateTacho() {
+    void updateTacho(void) {
       msLastTachoMeasurement = millis();
       if (tachoPin < 0) return;
 
@@ -101,7 +106,7 @@ private:
       }
     }
 
-    void initPWMfan() {
+    void initPWMfan(void) {
       if (pwmPin < 0 || !pinManager.allocatePin(pwmPin, true, PinOwner::UM_Unspecified)) {
         enabled = false;
         return;
@@ -112,7 +117,7 @@ private:
       analogWriteFreq(WLED_PWM_FREQ);
       #else
       pwmChannel = pinManager.allocateLedc(1);
-      if (pwmChannel == 255) { // No more free LEDC channels
+      if (pwmChannel == 255) {
         deinitPWMfan();
         return;
       }
@@ -133,12 +138,12 @@ private:
 
       if (WLED_MQTT_CONNECTED) {
         char buff[16];
-        sprintf(buff, "%d%%", pwmValue); // Send PWM value as percentage
+        sprintf(buff, "%d%%", pwmValue);
         mqtt->publish(pwmFanMqttTopic, 0, false, buff);
       }
     }
 
-    float getActualTemperature() {
+    float getActualTemperature(void) {
       #if defined(USERMOD_DALLASTEMPERATURE) || defined(USERMOD_SHT)
       if (tempUM != nullptr)
         return tempUM->getTemperatureC();
@@ -146,30 +151,27 @@ private:
       return -127.0f;
     }
 
-    void setFanPWMbasedOnTemperature() {
+    void setFanPWMbasedOnTemperature(void) {
       float temp = getActualTemperature();
-      // Dividing minPercent and maxPercent into equal PWM value sizes
-      int pwmStepSize = ((maxPWMValuePct - minPWMValuePct) * 255) / (7 * 100);
+      int pwmStepSize = ((maxPWMValuePct - minPWMValuePct) * _pwmMaxValue) / (_pwmMaxStepCount * 100);
       int pwmStep = calculatePwmStep(temp - targetTemperature);
-      int pwmMinimumValue = (minPWMValuePct * 255) / 100;
+      int pwmMinimumValue = (minPWMValuePct * _pwmMaxValue) / 100;
       updateFanSpeed(pwmMinimumValue + pwmStep * pwmStepSize);
     }
 
     uint8_t calculatePwmStep(float diffTemp) {
       if ((diffTemp == NAN) || (diffTemp <= -100.0)) {
-        DEBUG_PRINTLN(F("WARNING: No temperature value available. Cannot do temperature control. Will set PWM fan to 255."));
-        return 7; // Max step count
+        return _pwmMaxStepCount;
       }
       if (diffTemp <= 0) {
         return 0;
       }
-      return (uint8_t) min(7, (int)(diffTemp / 0.5) + 1); // Calculate steps based on temperature difference
+      return (uint8_t) min((int)_pwmMaxStepCount, (int)(diffTemp / _pwmTempStepSize) + 1);
     }
 
-public:
+  public:
     void setup() override {
       #ifdef USERMOD_DALLASTEMPERATURE
-      // This Usermod requires Temperature usermod
       tempUM = (UsermodTemperature*) usermods.lookup(USERMOD_ID_TEMPERATURE);
       #elif defined(USERMOD_SHT)
       tempUM = (ShtUsermod*) usermods.lookup(USERMOD_ID_SHT);
@@ -190,6 +192,9 @@ public:
       updateTacho();
       if (!lockFan) setFanPWMbasedOnTemperature();
     }
+
+    // additional methods...
+
 };
 
 // Static member initialization
