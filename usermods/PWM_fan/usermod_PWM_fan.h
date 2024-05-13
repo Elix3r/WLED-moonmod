@@ -9,9 +9,6 @@
 // PWM & tacho code curtesy of @KlausMu
 // https://github.com/KlausMu/esp32-fan-controller/tree/main/src
 // adapted for WLED usermod by @blazoncek
-#ifndef MQTT_FAN_TOPIC
-#define MQTT_FAN_TOPIC "fanrpm/"
-#endif
 
 #ifndef TACHO_PIN
   #define TACHO_PIN -1
@@ -185,30 +182,6 @@ class PWMFanUsermod : public Usermod {
       }
       updateFanSpeed(newPWMvalue);
     }
-	
-    void updateTacho(void) {
-        msLastTachoMeasurement = millis();
-        if (tachoPin < 0) return;
-
-        detachInterrupt(digitalPinToInterrupt(tachoPin)); // detach interrupt while calculating rpm
-        last_rpm = (counter_rpm * 60) / numberOfInterrupsInOneSingleRotation;
-        last_rpm /= tachoUpdateSec;
-        counter_rpm = 0; 
-        attachInterrupt(digitalPinToInterrupt(tachoPin), rpm_fan, FALLING);
-
-        publishRPM(last_rpm); // Publish RPM to MQTT
-    }
-
-    void publishRPM(uint16_t rpm) {
-#ifndef WLED_DISABLE_MQTT
-        if (WLED_MQTT_CONNECTED) {
-            char topic[64];
-            strcpy(topic, mqttDeviceTopic);
-            strcat(topic, MQTT_FAN_TOPIC); // Assuming mqttDeviceTopic ends with a '/'
-            mqtt->publish(topic, 0, false, String(rpm).c_str());
-        }
-#endif
-    }	
 
   public:
 
